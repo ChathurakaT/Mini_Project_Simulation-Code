@@ -1,0 +1,75 @@
+import random
+import heapq
+import matplotlib.pyplot as plt
+
+SIMULATION_TIME = 12 * 60
+NUM_DESKS = 3
+MEAN_INTERARRIVAL = 3
+MEAN_SERVICE_TIME = 7
+
+random.seed(42)
+
+current_time = 0
+event_list = []
+queue = []
+servers = [0] * NUM_DESKS
+
+queue_lengths = []
+queue_times = []
+waiting_times = []
+
+def schedule_arrival(time):
+    heapq.heappush(event_list, (time, "arrival"))
+
+def schedule_departure(time, desk_id, arrival_time):
+    heapq.heappush(event_list, (time, "departure", desk_id, arrival_time))
+
+schedule_arrival(random.expovariate(1 / MEAN_INTERARRIVAL))
+
+while event_list and current_time <= SIMULATION_TIME:
+    event = heapq.heappop(event_list)
+    current_time = event[0]
+
+    queue_lengths.append(len(queue))
+    queue_times.append(current_time)
+
+    if event[1] == "arrival":
+        queue.append(current_time)
+        next_arrival = current_time + random.expovariate(1 / MEAN_INTERARRIVAL)
+        if next_arrival <= SIMULATION_TIME:
+            schedule_arrival(next_arrival)
+
+        for i in range(NUM_DESKS):
+            if servers[i] <= current_time and queue:
+                arrival_time = queue.pop(0)
+                service_time = random.expovariate(1 / MEAN_SERVICE_TIME)
+                servers[i] = current_time + service_time
+                waiting_times.append(current_time - arrival_time)
+                schedule_departure(servers[i], i, arrival_time)
+
+    elif event[1] == "departure":
+        desk_id = event[2]
+        servers[desk_id] = current_time
+        if queue:
+            arrival_time = queue.pop(0)
+            service_time = random.expovariate(1 / MEAN_SERVICE_TIME)
+            servers[desk_id] = current_time + service_time
+            waiting_times.append(current_time - arrival_time)
+            schedule_departure(servers[desk_id], desk_id, arrival_time)
+
+plt.figure()
+plt.plot(queue_times, queue_lengths)
+plt.xlabel("Time (minutes)")
+plt.ylabel("Queue Length")
+plt.title("Queue Length Over Time")
+plt.show()
+
+plt.figure()
+plt.hist(waiting_times, bins=20)
+plt.xlabel("Waiting Time (minutes)")
+plt.ylabel("Number of Patients")
+plt.title("Waiting Time Distribution")
+plt.show()
+
+print("Total patients served:", len(waiting_times))
+print("Average waiting time:", sum(waiting_times)/len(waiting_times))
